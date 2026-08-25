@@ -6,7 +6,7 @@
 https://emi-prediction-engxqceeljynyggeypcyqb.streamlit.app/
 
 💻 **GitHub Repository:**  
-https://github.com/rajsengar1804/emi-prediction
+https://github.com/rajsengar1804-hub/EMI-Prediction
 
 📊 **DagsHub MLflow Tracking:**  
 https://dagshub.com/rajsengar1804/emi-prediction.mlflow
