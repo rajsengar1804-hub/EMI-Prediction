@@ -101,14 +101,42 @@ DagsHub
 
 ### 📂 Folder Description
 
-| Folder/File | Description |
-|---|---|
-| `Notebook/` | Contains EDA and model development notebooks |
-| `final_model/` | Contains the final trained XGBoost and LightGBM models |
-| `src/` | Contains reusable data ingestion, transformation, and model loading code |
-| `main_classification.py` | Runs the complete classification MLflow pipeline |
-| `main_regression.py` | Runs the complete regression MLflow pipeline |
-| `mlflow_config.py` | Configures MLflow with DagsHub |
-| `requirements.txt` | Contains project dependencies |
-| `.gitignore` | Specifies files and folders excluded from Git |
-| `README.md` | Project documentation |
+EMI-Prediction/
+│
+├── Notebook/
+│   ├── EDA.ipynb
+│   ├── model_classification.ipynb
+│   └── model_regression.ipynb
+│
+├── final_model/
+│   ├── emi_classification/
+│   │   ├── final_xgboost_model.pkl
+│   │   ├── label_encoder.pkl
+│   │   └── selected_features.pkl
+│   │
+│   └── emi_regression/
+│       ├── final_lightgbm_model.joblib
+│       └── selected_features.joblib
+│
+├── src/
+│   ├── __init__.py
+│   │
+│   ├── classification/
+│   │   ├── __init__.py
+│   │   ├── data_ingestion.py
+│   │   ├── data_transformation.py
+│   │   ├── model_loader.py
+│   │   └── model_training.py
+│   │
+│   └── regression/
+│       ├── __init__.py
+│       ├── data_ingestion.py
+│       ├── data_transformation.py
+│       └── model_loader.py
+│
+├── .gitignore
+├── README.md
+├── main_classification.py
+├── main_regression.py
+├── mlflow_config.py
+└── requirements.txt
