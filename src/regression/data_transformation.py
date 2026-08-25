@@ -304,10 +304,106 @@ def transform_data(X_train, X_test):
     ]
 
     return (
-        X_train_selected,
-        X_test_selected,
-        num_imputer,
-        cat_imputer,
-        pt,
-        encoder
+    X_train_selected,
+    X_test_selected,
+    num_imputer,
+    cat_imputer,
+    pt,
+    encoder,
+    numerical_with_nan,
+    categorical_features
+)
+def transform_new_data(
+    X,
+    num_imputer,
+    cat_imputer,
+    pt,
+    encoder,
+    numerical_with_nan,
+    categorical_features
+):
+    """
+    Transform new/unseen customer data using
+    preprocessing objects fitted during training.
+    """
+
+    X = X.copy()
+
+    # -----------------------------------------------------
+    # 1. Numerical missing-value imputation
+    # -----------------------------------------------------
+
+    if numerical_with_nan:
+        X[numerical_with_nan] = num_imputer.transform(
+            X[numerical_with_nan]
+        )
+
+    # -----------------------------------------------------
+    # 2. Categorical missing-value imputation
+    # -----------------------------------------------------
+
+    X[["education"]] = cat_imputer.transform(
+        X[["education"]]
     )
+
+    # -----------------------------------------------------
+    # 3. Yeo-Johnson transformation
+    # -----------------------------------------------------
+
+    X[YEO_JOHNSON_FEATURES] = pt.transform(
+        X[YEO_JOHNSON_FEATURES]
+    )
+
+    # -----------------------------------------------------
+    # 4. Square-root transformation
+    # -----------------------------------------------------
+
+    for feature in SQRT_FEATURES:
+        X[feature] = np.sqrt(
+            X[feature]
+        )
+
+    # -----------------------------------------------------
+    # 5. One-Hot Encoding
+    # -----------------------------------------------------
+
+    X_encoded = encoder.transform(
+        X[categorical_features]
+    )
+
+    encoded_columns = encoder.get_feature_names_out(
+        categorical_features
+    )
+
+    X_encoded = pd.DataFrame(
+        X_encoded,
+        columns=encoded_columns,
+        index=X.index
+    )
+
+    # -----------------------------------------------------
+    # 6. Remove original categorical columns
+    # -----------------------------------------------------
+
+    X = X.drop(
+        columns=categorical_features
+    )
+
+    # -----------------------------------------------------
+    # 7. Combine numerical + encoded features
+    # -----------------------------------------------------
+
+    X_final = pd.concat(
+        [X, X_encoded],
+        axis=1
+    )
+
+    # -----------------------------------------------------
+    # 8. Select final 15 features
+    # -----------------------------------------------------
+
+    X_selected = X_final[
+        FINAL_SELECTED_FEATURES
+    ]
+
+    return X_selected

@@ -12,3 +12,4 @@ dagshub==0.7.1
 joblib==1.5.3
 python-dotenv
 pyarrow
+streamlit==1.62.0

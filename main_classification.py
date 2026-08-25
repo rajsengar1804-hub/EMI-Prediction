@@ -1,4 +1,5 @@
 import os
+import joblib
 
 import mlflow
 import mlflow.xgboost
@@ -44,7 +45,7 @@ MODEL_PATH = (
     "emi_xgboost_balanced.pkl"
 )
 
-ENCODER_PATH = (
+LABEL_ENCODER_PATH = (
     "final_model/"
     "emi_classification/"
     "emi_label_encoder.pkl"
@@ -54,6 +55,12 @@ FEATURES_PATH = (
     "final_model/"
     "emi_classification/"
     "emi_selected_features.pkl"
+)
+
+PREPROCESSING_PATH = (
+    "final_model/"
+    "emi_classification/"
+    "preprocessing.pkl"
 )
 
 ARTIFACT_DIR = "artifacts/classification"
@@ -90,35 +97,46 @@ def main():
     print("Dataset shape:", dataset.shape)
 
     # -----------------------------------------------------
-    # 4. Separate features and target
+    # 4. Separate X and y
     # -----------------------------------------------------
 
     X, y = split_features_target(dataset)
 
     # -----------------------------------------------------
-    # 5. Reproduce train/test split
+    # 5. Train/Test split
     # -----------------------------------------------------
 
-    X_train, X_test, y_train, y_test = train_test_split_data(
-        X,
-        y
+    X_train, X_test, y_train, y_test = (
+        train_test_split_data(
+            X,
+            y
+        )
     )
 
-    print("Train/Test split completed.")
+    print("\nTrain/Test split completed.")
 
-    print("X_train:", X_train.shape)
-    print("X_test :", X_test.shape)
-
-    # -----------------------------------------------------
-    # 6. Load final selected features
-    # -----------------------------------------------------
-
-    selected_features = load_selected_features(
-        FEATURES_PATH
+    print(
+        "X_train:",
+        X_train.shape
     )
 
     print(
-        "Number of selected features:",
+        "X_test :",
+        X_test.shape
+    )
+
+    # -----------------------------------------------------
+    # 6. Load selected features
+    # -----------------------------------------------------
+
+    selected_features = (
+        load_selected_features(
+            FEATURES_PATH
+        )
+    )
+
+    print(
+        "\nNumber of selected features:",
         len(selected_features)
     )
 
@@ -132,14 +150,18 @@ def main():
         num_imputer,
         cat_imputer,
         power_transformer,
-        encoder
+        encoder,
+        numerical_with_nan,
+        categorical_features
     ) = transform_data(
         X_train,
         X_test,
         selected_features
     )
 
-    print("Data transformation completed.")
+    print(
+        "\nData transformation completed."
+    )
 
     print(
         "Transformed X_test:",
@@ -147,20 +169,62 @@ def main():
     )
 
     # -----------------------------------------------------
-    # 8. Load final trained model
+    # 8. Save preprocessing objects
     # -----------------------------------------------------
 
-    model = load_model(MODEL_PATH)
+    preprocessing_bundle = {
 
-    # Load label encoder
-    label_encoder = load_label_encoder(
-        ENCODER_PATH
+        "num_imputer": num_imputer,
+
+        "cat_imputer": cat_imputer,
+
+        "power_transformer": power_transformer,
+
+        "encoder": encoder,
+
+        "numerical_with_nan": numerical_with_nan,
+
+        "categorical_features": categorical_features,
+
+        "selected_features": selected_features
+    }
+
+    joblib.dump(
+        preprocessing_bundle,
+        PREPROCESSING_PATH
     )
 
-    print("Final XGBoost model loaded.")
+    print(
+        "Classification preprocessing saved:",
+        PREPROCESSING_PATH
+    )
 
     # -----------------------------------------------------
-    # 9. Start MLflow run
+    # 9. Load final XGBoost model
+    # -----------------------------------------------------
+
+    model = load_model(
+        MODEL_PATH
+    )
+
+    print(
+        "\nFinal XGBoost model loaded."
+    )
+
+    # -----------------------------------------------------
+    # 10. Load label encoder
+    # -----------------------------------------------------
+
+    label_encoder = load_label_encoder(
+        LABEL_ENCODER_PATH
+    )
+
+    print(
+        "Label encoder loaded."
+    )
+
+    # -----------------------------------------------------
+    # 11. Start MLflow run
     # -----------------------------------------------------
 
     with mlflow.start_run(
@@ -179,47 +243,38 @@ def main():
         )
 
         mlflow.log_param(
-            "n_estimators",
-            model_params.get("n_estimators")
-        )
-
-        mlflow.log_param(
-            "random_state",
-            model_params.get("random_state")
+            "objective",
+            model_params.get(
+                "objective"
+            )
         )
 
         mlflow.log_param(
             "eval_metric",
-            model_params.get("eval_metric")
+            model_params.get(
+                "eval_metric"
+            )
         )
 
         mlflow.log_param(
-            "objective",
-            model_params.get("objective")
+            "n_estimators",
+            model_params.get(
+                "n_estimators"
+            )
+        )
+
+        mlflow.log_param(
+            "random_state",
+            model_params.get(
+                "random_state"
+            )
         )
 
         mlflow.log_param(
             "n_jobs",
-            model_params.get("n_jobs")
-        )
-
-        # -------------------------------------------------
-        # Data / preprocessing parameters
-        # -------------------------------------------------
-
-        mlflow.log_param(
-            "test_size",
-            0.20
-        )
-
-        mlflow.log_param(
-            "split_random_state",
-            42
-        )
-
-        mlflow.log_param(
-            "stratify",
-            True
+            model_params.get(
+                "n_jobs"
+            )
         )
 
         mlflow.log_param(
@@ -232,11 +287,6 @@ def main():
             "Pre-selected features from Kaggle"
         )
 
-        mlflow.log_param(
-            "imbalance_method",
-            "sample_weight"
-        )
-
         # =================================================
         # PREDICTION
         # =================================================
@@ -245,13 +295,16 @@ def main():
             X_test_transformed
         )
 
+        # -------------------------------------------------
         # Convert predictions to original labels
+        # -------------------------------------------------
+
         y_pred = label_encoder.inverse_transform(
             y_pred_encoded.astype(int)
         )
 
         # =================================================
-        # METRICS
+        # CLASSIFICATION METRICS
         # =================================================
 
         accuracy = accuracy_score(
@@ -259,14 +312,14 @@ def main():
             y_pred
         )
 
-        precision = precision_score(
+        macro_precision = precision_score(
             y_test,
             y_pred,
             average="macro",
             zero_division=0
         )
 
-        recall = recall_score(
+        macro_recall = recall_score(
             y_test,
             y_pred,
             average="macro",
@@ -280,14 +333,16 @@ def main():
             zero_division=0
         )
 
-        balanced_accuracy = balanced_accuracy_score(
-            y_test,
-            y_pred
+        balanced_accuracy = (
+            balanced_accuracy_score(
+                y_test,
+                y_pred
+            )
         )
 
-        # -------------------------------------------------
-        # Log metrics
-        # -------------------------------------------------
+        # =================================================
+        # LOG METRICS
+        # =================================================
 
         mlflow.log_metric(
             "accuracy",
@@ -296,12 +351,12 @@ def main():
 
         mlflow.log_metric(
             "macro_precision",
-            precision
+            macro_precision
         )
 
         mlflow.log_metric(
             "macro_recall",
-            recall
+            macro_recall
         )
 
         mlflow.log_metric(
@@ -318,9 +373,17 @@ def main():
         # PRINT RESULTS
         # =================================================
 
-        print("\n==============================")
-        print("CLASSIFICATION RESULTS")
-        print("==============================")
+        print(
+            "\n=============================="
+        )
+
+        print(
+            "CLASSIFICATION RESULTS"
+        )
+
+        print(
+            "=============================="
+        )
 
         print(
             "Accuracy:",
@@ -329,12 +392,12 @@ def main():
 
         print(
             "Macro Precision:",
-            precision
+            macro_precision
         )
 
         print(
             "Macro Recall:",
-            recall
+            macro_recall
         )
 
         print(
@@ -347,9 +410,9 @@ def main():
             balanced_accuracy
         )
 
-        # =================================================
-        # CLASSIFICATION REPORT
-        # =================================================
+        print(
+            "\nClassification Report:"
+        )
 
         report = classification_report(
             y_test,
@@ -357,58 +420,73 @@ def main():
             zero_division=0
         )
 
-        print("\nClassification Report:")
         print(report)
 
-        report_path = os.path.join(
-            ARTIFACT_DIR,
-            "classification_report.txt"
+        print(
+            "\nConfusion Matrix:"
         )
-
-        with open(
-            report_path,
-            "w"
-        ) as file:
-
-            file.write(report)
-
-        mlflow.log_artifact(
-            report_path
-        )
-
-        # =================================================
-        # CONFUSION MATRIX
-        # =================================================
 
         cm = confusion_matrix(
             y_test,
-            y_pred,
-            labels=label_encoder.classes_
+            y_pred
         )
 
-        print("\nConfusion Matrix:")
         print(cm)
 
-        cm_path = os.path.join(
+        # =================================================
+        # SAVE METRICS ARTIFACT
+        # =================================================
+
+        metrics_path = os.path.join(
             ARTIFACT_DIR,
-            "confusion_matrix.txt"
+            "classification_metrics.txt"
         )
 
         with open(
-            cm_path,
+            metrics_path,
             "w"
         ) as file:
+
+            file.write(
+                f"Accuracy: {accuracy}\n"
+            )
+
+            file.write(
+                f"Macro Precision: {macro_precision}\n"
+            )
+
+            file.write(
+                f"Macro Recall: {macro_recall}\n"
+            )
+
+            file.write(
+                f"Macro F1: {macro_f1}\n"
+            )
+
+            file.write(
+                f"Balanced Accuracy: {balanced_accuracy}\n"
+            )
+
+            file.write(
+                "\nClassification Report:\n"
+            )
+
+            file.write(report)
+
+            file.write(
+                "\nConfusion Matrix:\n"
+            )
 
             file.write(
                 str(cm)
             )
 
         mlflow.log_artifact(
-            cm_path
+            metrics_path
         )
 
         # =================================================
-        # SELECTED FEATURES ARTIFACT
+        # SAVE SELECTED FEATURES
         # =================================================
 
         features_path = os.path.join(
@@ -444,11 +522,23 @@ def main():
         # RUN INFORMATION
         # =================================================
 
-        run_id = mlflow.active_run().info.run_id
+        run_id = (
+            mlflow.active_run()
+            .info
+            .run_id
+        )
 
-        print("\n==============================")
-        print("MLFLOW RUN")
-        print("==============================")
+        print(
+            "\n=============================="
+        )
+
+        print(
+            "MLFLOW RUN"
+        )
+
+        print(
+            "=============================="
+        )
 
         print(
             "Run ID:",
@@ -461,7 +551,8 @@ def main():
         )
 
         print(
-            "MLflow run completed successfully!"
+            "\nMLflow classification run "
+            "completed successfully!"
         )
 
 

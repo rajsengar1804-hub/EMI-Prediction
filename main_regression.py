@@ -1,4 +1,5 @@
 import os
+import joblib
 
 import mlflow
 import mlflow.lightgbm
@@ -44,6 +45,12 @@ FEATURES_PATH = (
     "final_model/"
     "emi_regression/"
     "selected_features.joblib"
+)
+
+PREPROCESSING_PATH = (
+    "final_model/"
+    "emi_regression/"
+    "preprocessing.pkl"
 )
 
 ARTIFACT_DIR = "artifacts/regression"
@@ -96,7 +103,9 @@ def main():
         )
     )
 
-    print("\nTrain/Test split completed.")
+    print(
+        "\nTrain/Test split completed."
+    )
 
     print(
         "X_train:",
@@ -133,7 +142,9 @@ def main():
         num_imputer,
         cat_imputer,
         power_transformer,
-        encoder
+        encoder,
+        numerical_with_nan,
+        categorical_features
     ) = transform_data(
         X_train,
         X_test
@@ -149,7 +160,38 @@ def main():
     )
 
     # -----------------------------------------------------
-    # 8. Load final LightGBM model
+    # 8. Save preprocessing objects
+    # -----------------------------------------------------
+
+    preprocessing_bundle = {
+
+        "num_imputer": num_imputer,
+
+        "cat_imputer": cat_imputer,
+
+        "power_transformer": power_transformer,
+
+        "encoder": encoder,
+
+        "numerical_with_nan": numerical_with_nan,
+
+        "categorical_features": categorical_features,
+
+        "selected_features": selected_features
+    }
+
+    joblib.dump(
+        preprocessing_bundle,
+        PREPROCESSING_PATH
+    )
+
+    print(
+        "Regression preprocessing saved:",
+        PREPROCESSING_PATH
+    )
+
+    # -----------------------------------------------------
+    # 9. Load final LightGBM model
     # -----------------------------------------------------
 
     model = load_model(
@@ -161,7 +203,7 @@ def main():
     )
 
     # -----------------------------------------------------
-    # 9. Start MLflow run
+    # 10. Start MLflow run
     # -----------------------------------------------------
 
     with mlflow.start_run(
