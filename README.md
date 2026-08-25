@@ -97,3 +97,18 @@ Model Evaluation
 MLflow Tracking
      ↓
 DagsHub
+
+
+### 📂 Folder Description
+
+| Folder/File | Description |
+|---|---|
+| `Notebook/` | Contains EDA and model development notebooks |
+| `final_model/` | Contains the final trained XGBoost and LightGBM models |
+| `src/` | Contains reusable data ingestion, transformation, and model loading code |
+| `main_classification.py` | Runs the complete classification MLflow pipeline |
+| `main_regression.py` | Runs the complete regression MLflow pipeline |
+| `mlflow_config.py` | Configures MLflow with DagsHub |
+| `requirements.txt` | Contains project dependencies |
+| `.gitignore` | Specifies files and folders excluded from Git |
+| `README.md` | Project documentation |
